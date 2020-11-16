@@ -1085,28 +1085,33 @@ class SSHTunnelForwarder(object):
         keys = SSHTunnelForwarder.get_agent_keys(logger=logger) \
             if allow_agent else []
 
+        if host_pkey_directories is None:
+            host_pkey_directories = [DEFAULT_SSH_DIRECTORY]
+
         paramiko_key_types = {'rsa': paramiko.RSAKey,
                               'dsa': paramiko.DSSKey,
                               'ecdsa': paramiko.ECDSAKey,
                               'ed25519': paramiko.Ed25519Key}
-        for directory in host_pkey_directories or [DEFAULT_SSH_DIRECTORY]:
+        for directory in host_pkey_directories:
             for keytype in paramiko_key_types.keys():
                 ssh_pkey_expanded = os.path.expanduser(
                     os.path.join(directory, 'id_{}'.format(keytype))
                 )
-                if os.path.isfile(ssh_pkey_expanded):
-                    ssh_pkey = SSHTunnelForwarder.read_private_key_file(
-                        pkey_file=ssh_pkey_expanded,
-                        logger=logger,
-                        key_type=paramiko_key_types[keytype]
-                    )
-                    if ssh_pkey:
-                        keys.append(ssh_pkey)
+                try:
+                    if os.path.isfile(ssh_pkey_expanded):
+                        ssh_pkey = SSHTunnelForwarder.read_private_key_file(
+                            pkey_file=ssh_pkey_expanded,
+                            logger=logger,
+                            key_type=paramiko_key_types[keytype]
+                        )
+                        if ssh_pkey:
+                            keys.append(ssh_pkey)
+                except OSError as exc:
+                    if logger:
+                        logger.warning('Private key file {0} check error: {1}'
+                                       .format(ssh_pkey_expanded, exc))
         if logger:
-            logger.info('{0} keys loaded from host directory'.format(
-                len(keys))
-            )
-
+            logger.info('{0} keys loaded'.format(len(keys)))
         return keys
 
     @staticmethod
